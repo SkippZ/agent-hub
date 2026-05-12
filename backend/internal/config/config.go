@@ -11,6 +11,25 @@ import (
 
 const configFileName = "config.json"
 
+// ProjectRoot returns the project root directory.
+// It walks up from cwd to find the first directory that has a frontend/ subdirectory,
+// or the parent of go.mod if the go.mod is in a subdirectory (e.g., backend/).
+func ProjectRoot() string {
+	wd, _ := os.Getwd()
+	start := wd
+	for {
+		// Check if this directory looks like a project root
+		if _, err := os.Stat(filepath.Join(wd, "frontend")); err == nil {
+			return wd
+		}
+		parent := filepath.Dir(wd)
+		if parent == wd {
+			return start
+		}
+		wd = parent
+	}
+}
+
 func DefaultConfig() *types.Config {
 	home, _ := os.UserHomeDir()
 	return &types.Config{
@@ -54,17 +73,8 @@ func Save(path string, cfg *types.Config) error {
 }
 
 func ConfigPath() string {
-	wd, _ := os.Getwd()
-	// Walk up to find project root
-	for {
-		if _, err := os.Stat(filepath.Join(wd, configFileName)); err == nil {
-			return filepath.Join(wd, configFileName)
-		}
-		parent := filepath.Dir(wd)
-		if parent == wd {
-			break
-		}
-		wd = parent
+	if p := os.Getenv("AGENT_HUB_CONFIG"); p != "" {
+		return p
 	}
-	return configFileName
+	return filepath.Join(ProjectRoot(), configFileName)
 }

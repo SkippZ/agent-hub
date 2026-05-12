@@ -16,13 +16,16 @@ import (
 )
 
 func main() {
+	root := config.ProjectRoot()
+	log.Printf("Project root: %s", root)
+
 	cfgPath := config.ConfigPath()
 	cfg, err := config.Load(cfgPath)
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	dbPath := filepath.Join(filepath.Dir(cfgPath), "agent-hub.db")
+	dbPath := filepath.Join(root, "agent-hub.db")
 	store, err := db.New(dbPath)
 	if err != nil {
 		log.Fatalf("Failed to open database: %v", err)
@@ -35,8 +38,14 @@ func main() {
 	handler.Register(mux)
 
 	// Serve frontend dist for non-API paths
-	frontendDist := filepath.Join(filepath.Dir(cfgPath), "frontend", "dist")
-	fs := http.FileServer(http.Dir(frontendDist))
+	frontendDist := filepath.Join(root, "frontend", "dist")
+	log.Printf("Frontend dist: %s", frontendDist)
+
+	if info, err := os.Stat(frontendDist); err != nil {
+		log.Printf("Warning: frontend dist not found at %s: %v", frontendDist, err)
+	} else {
+		log.Printf("Frontend dist found (isDir=%v)", info.IsDir())
+	}
 
 	addr := ":8080"
 	if v := os.Getenv("AGENT_HUB_PORT"); v != "" {
@@ -44,8 +53,11 @@ func main() {
 	}
 
 	server := &http.Server{
-		Addr:    addr,
-		Handler: withLogging(withCORS(withFallback(mux, fs))),
+		Addr: addr,
+		Handler: withLogging(withCORS(router(
+			mux,
+			http.FileServer(http.Dir(frontendDist)),
+		))),
 	}
 
 	go func() {
@@ -61,6 +73,22 @@ func main() {
 	if err := server.ListenAndServe(); err != http.ErrServerClosed {
 		log.Fatalf("Server error: %v", err)
 	}
+}
+
+func router(apiHandler, fs http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(r.URL.Path, "/ws/") {
+			apiHandler.ServeHTTP(w, r)
+			return
+		}
+		// SPA: serve index.html for any non-file path
+		path := r.URL.Path
+		if path != "/" && !strings.Contains(path, ".") {
+			r.URL.Path = "/"
+		}
+		log.Printf("Serving static: %s", path)
+		fs.ServeHTTP(w, r)
+	})
 }
 
 func withCORS(next http.Handler) http.Handler {
@@ -80,21 +108,5 @@ func withLogging(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("%s %s", r.Method, r.URL.Path)
 		next.ServeHTTP(w, r)
-	})
-}
-
-func withFallback(apiHandler, fs http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Try API handler first; if it returns 404, fall back to file server
-		if strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(r.URL.Path, "/ws/") {
-			apiHandler.ServeHTTP(w, r)
-			return
-		}
-		// SPA: serve index.html for any non-file path
-		path := r.URL.Path
-		if path != "/" && !strings.Contains(path, ".") {
-			r.URL.Path = "/"
-		}
-		fs.ServeHTTP(w, r)
 	})
 }

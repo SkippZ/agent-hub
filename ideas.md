@@ -1,1 +1,3 @@
 - agent type selection (code review, feature dev, software architect)
+- detect that a project is. is a git repo?
+- create new project via agent hub?
