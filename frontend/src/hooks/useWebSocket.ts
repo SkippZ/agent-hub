@@ -20,25 +20,36 @@ export function useWebSocket(sessionId: string | undefined, onMessage: MessageHa
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
     const host = window.location.hostname === 'localhost' ? 'localhost:8080' : window.location.host
     const url = `${protocol}//${host}/ws/sessions/${sessionId}`
+    console.log(`[WS] connecting to ${url}`)
 
     function connect() {
       const ws = new WebSocket(url)
       wsRef.current = ws
 
+      ws.onopen = () => console.log(`[WS] connected (session=${sessionId})`)
+
       ws.onmessage = (event) => {
         try {
           const msg = JSON.parse(event.data) as WSMessage
+          if (msg.type === 'output') {
+            const preview = (msg.data ?? '').slice(0, 100)
+            console.log(`[WS] output: ${JSON.stringify(preview)}`)
+          } else {
+            console.log(`[WS] ${msg.type}:`, msg.status ?? msg.message ?? '')
+          }
           handlerRef.current(msg)
         } catch {
-          // ignore parse errors
+          console.warn('[WS] failed to parse message:', event.data)
         }
       }
 
-      ws.onclose = () => {
+      ws.onclose = (ev) => {
+        console.log(`[WS] disconnected (code=${ev.code}, session=${sessionId})`)
         wsRef.current = null
       }
 
       ws.onerror = () => {
+        console.error(`[WS] connection error (session=${sessionId})`)
         ws.close()
       }
     }
@@ -46,13 +57,16 @@ export function useWebSocket(sessionId: string | undefined, onMessage: MessageHa
     connect()
 
     return () => {
+      console.log(`[WS] cleanup (session=${sessionId})`)
       wsRef.current?.close()
       wsRef.current = null
     }
   }, [sessionId])
 
   const send = useCallback((message: string) => {
-    wsRef.current?.send(JSON.stringify({ type: 'message', content: message }))
+    const payload = JSON.stringify({ type: 'message', content: message })
+    console.log(`[WS] send: ${JSON.stringify({ type: 'message', content: message.slice(0, 80) })}`)
+    wsRef.current?.send(payload)
   }, [])
 
   return { send }

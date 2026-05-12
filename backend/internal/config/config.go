@@ -38,6 +38,9 @@ func DefaultConfig() *types.Config {
 			"opencode":    "opencode",
 			"claude-code": "claude",
 		},
+		OpenCodeServer: &types.OpenCodeServerConfig{
+			PortRange: [2]int{14100, 14200},
+		},
 	}
 }
 

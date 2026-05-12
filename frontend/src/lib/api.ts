@@ -3,15 +3,30 @@ import type { Session, Message, CodeSnapshot, CreateSessionRequest, SessionStatu
 const BASE = ''
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options,
-  })
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }))
-    throw new Error(err.error || res.statusText)
+  const method = options?.method ?? 'GET'
+  const body = options?.body as string | undefined
+  const tag = body ? `${method} ${path} ${JSON.stringify(body).slice(0, 80)}` : `${method} ${path}`
+  console.log(`[API] → ${tag}`)
+  const start = performance.now()
+  try {
+    const res = await fetch(`${BASE}${path}`, {
+      headers: { 'Content-Type': 'application/json' },
+      ...options,
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }))
+      throw new Error(err.error || res.statusText)
+    }
+    const data = await res.json()
+    const elapsed = (performance.now() - start).toFixed(0)
+    const preview = Array.isArray(data) ? `[${data.length} items]` : JSON.stringify(data).slice(0, 60)
+    console.log(`[API] ← ${method} ${path} (${elapsed}ms) ${preview}`)
+    return data
+  } catch (err) {
+    const elapsed = (performance.now() - start).toFixed(0)
+    console.error(`[API] ✗ ${method} ${path} (${elapsed}ms) ${err}`)
+    throw err
   }
-  return res.json()
 }
 
 export const api = {

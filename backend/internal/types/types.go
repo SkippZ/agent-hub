@@ -18,18 +18,19 @@ const (
 )
 
 type Session struct {
-	ID              string        `json:"id"`
-	AgentType       AgentType     `json:"agent_type"`
-	ProjectPath     string        `json:"project_path"`
-	ProjectName     string        `json:"project_name"`
-	BaseBranch      string        `json:"base_branch"`
-	FeatureBranch   string        `json:"feature_branch"`
-	WorktreePath    string        `json:"worktree_path"`
-	TaskDescription string        `json:"task_description"`
-	Status          SessionStatus `json:"status"`
-	CreatedAt       time.Time     `json:"created_at"`
-	UpdatedAt       time.Time     `json:"updated_at"`
-	ExitedAt        *time.Time    `json:"exited_at,omitempty"`
+	ID                string        `json:"id"`
+	AgentType         AgentType     `json:"agent_type"`
+	ProjectPath       string        `json:"project_path"`
+	ProjectName       string        `json:"project_name"`
+	BaseBranch        string        `json:"base_branch"`
+	FeatureBranch     string        `json:"feature_branch"`
+	WorktreePath      string        `json:"worktree_path"`
+	TaskDescription   string        `json:"task_description"`
+	Status            SessionStatus `json:"status"`
+	CreatedAt         time.Time     `json:"created_at"`
+	UpdatedAt         time.Time     `json:"updated_at"`
+	ExitedAt          *time.Time    `json:"exited_at,omitempty"`
+	ExternalSessionID string        `json:"-"`
 }
 
 type Message struct {
@@ -64,9 +65,15 @@ type UpdateStatusRequest struct {
 	Status SessionStatus `json:"status"`
 }
 
+type OpenCodeServerConfig struct {
+	PortRange [2]int `json:"port_range,omitempty"` // [start, end) for per-session servers
+	URL       string `json:"url,omitempty"`        // external server URL (overrides managed servers)
+}
+
 type Config struct {
-	ProjectsDir string           `json:"projects_dir"`
-	Agents      map[string]string `json:"agents"`
+	ProjectsDir    string               `json:"projects_dir"`
+	Agents         map[string]string    `json:"agents"`
+	OpenCodeServer *OpenCodeServerConfig `json:"opencode_server,omitempty"`
 }
 
 type Project struct {

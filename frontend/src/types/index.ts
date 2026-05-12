@@ -49,7 +49,13 @@ export interface Branch {
   name: string
 }
 
+export interface OpenCodeServerConfig {
+  port_range?: [number, number]
+  url?: string
+}
+
 export interface Config {
   projects_dir: string
   agents: Record<string, string>
+  opencode_server?: OpenCodeServerConfig
 }

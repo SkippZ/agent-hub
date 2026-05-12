@@ -70,17 +70,32 @@ func (s *Store) migrate() error {
 	CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id);
 	CREATE INDEX IF NOT EXISTS idx_snapshots_session ON code_snapshots(session_id);
 	`
-	_, err := s.db.Exec(schema)
-	return err
+	if _, err := s.db.Exec(schema); err != nil {
+		return err
+	}
+
+	// Add external_session_id column if not present (migration for existing DBs)
+	_, _ = s.db.Exec(`ALTER TABLE sessions ADD COLUMN external_session_id TEXT`)
+
+	return nil
 }
 
 func (s *Store) CreateSession(session *types.Session) error {
 	_, err := s.db.Exec(
-		`INSERT INTO sessions (id, agent_type, project_path, project_name, base_branch, feature_branch, worktree_path, task_description, status, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO sessions (id, agent_type, project_path, project_name, base_branch, feature_branch, worktree_path, task_description, status, created_at, updated_at, external_session_id)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		session.ID, session.AgentType, session.ProjectPath, session.ProjectName,
 		session.BaseBranch, session.FeatureBranch, session.WorktreePath,
 		session.TaskDescription, session.Status, session.CreatedAt, session.UpdatedAt,
+		session.ExternalSessionID,
+	)
+	return err
+}
+
+func (s *Store) SetExternalSessionID(id, externalID string) error {
+	_, err := s.db.Exec(
+		`UPDATE sessions SET external_session_id = ? WHERE id = ?`,
+		externalID, id,
 	)
 	return err
 }
@@ -88,7 +103,8 @@ func (s *Store) CreateSession(session *types.Session) error {
 func (s *Store) ListSessions() ([]*types.Session, error) {
 	rows, err := s.db.Query(
 		`SELECT id, agent_type, project_path, project_name, base_branch, feature_branch,
-		        worktree_path, task_description, status, created_at, updated_at, exited_at
+		        worktree_path, task_description, status, created_at, updated_at, exited_at,
+		        external_session_id
 		 FROM sessions ORDER BY created_at DESC`,
 	)
 	if err != nil {
@@ -100,15 +116,20 @@ func (s *Store) ListSessions() ([]*types.Session, error) {
 	for rows.Next() {
 		s := &types.Session{}
 		var exitedAt sql.NullTime
+		var extID sql.NullString
 		if err := rows.Scan(
 			&s.ID, &s.AgentType, &s.ProjectPath, &s.ProjectName,
 			&s.BaseBranch, &s.FeatureBranch, &s.WorktreePath,
 			&s.TaskDescription, &s.Status, &s.CreatedAt, &s.UpdatedAt, &exitedAt,
+			&extID,
 		); err != nil {
 			return nil, err
 		}
 		if exitedAt.Valid {
 			s.ExitedAt = &exitedAt.Time
+		}
+		if extID.Valid {
+			s.ExternalSessionID = extID.String
 		}
 		sessions = append(sessions, s)
 	}
@@ -118,20 +139,26 @@ func (s *Store) ListSessions() ([]*types.Session, error) {
 func (s *Store) GetSession(id string) (*types.Session, error) {
 	sess := &types.Session{}
 	var exitedAt sql.NullTime
+	var extID sql.NullString
 	err := s.db.QueryRow(
 		`SELECT id, agent_type, project_path, project_name, base_branch, feature_branch,
-		        worktree_path, task_description, status, created_at, updated_at, exited_at
+		        worktree_path, task_description, status, created_at, updated_at, exited_at,
+		        external_session_id
 		 FROM sessions WHERE id = ?`, id,
 	).Scan(
 		&sess.ID, &sess.AgentType, &sess.ProjectPath, &sess.ProjectName,
 		&sess.BaseBranch, &sess.FeatureBranch, &sess.WorktreePath,
 		&sess.TaskDescription, &sess.Status, &sess.CreatedAt, &sess.UpdatedAt, &exitedAt,
+		&extID,
 	)
 	if err != nil {
 		return nil, err
 	}
 	if exitedAt.Valid {
 		sess.ExitedAt = &exitedAt.Time
+	}
+	if extID.Valid {
+		sess.ExternalSessionID = extID.String
 	}
 	return sess, nil
 }

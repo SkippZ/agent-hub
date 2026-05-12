@@ -65,6 +65,7 @@ func main() {
 		signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 		<-sig
 		log.Println("Shutting down...")
+		handler.Shutdown()
 		server.Close()
 	}()
 

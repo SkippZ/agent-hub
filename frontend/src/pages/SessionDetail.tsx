@@ -6,6 +6,7 @@ import { Card, CardContent } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { Textarea } from '../components/ui/textarea'
 import { StatusBadge } from '../components/StatusBadge'
+import { Markdown } from '../components/Markdown'
 import { useWebSocket } from '../hooks/useWebSocket'
 import type { Message, SessionStatus } from '../types'
 
@@ -153,9 +154,9 @@ export function SessionDetail() {
                       <span className="ml-2 inline-block h-2 w-2 rounded-full bg-blue-400 animate-pulse" />
                     )}
                   </div>
-                  <pre className="whitespace-pre-wrap font-sans text-sm">
-                    {msg.content}
-                  </pre>
+                  <div className="text-sm">
+                    <Markdown content={msg.content} />
+                  </div>
                 </div>
               ))}
               <div ref={outputEndRef} />

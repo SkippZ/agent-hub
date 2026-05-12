@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"os/exec"
 	"strings"
 	"sync"
@@ -76,6 +77,7 @@ func (m *Manager) Start() error {
 		return fmt.Errorf("start process: %w", err)
 	}
 
+	log.Printf("[agent %s] started (pid=%d)", m.cmd.Path, m.cmd.Process.Pid)
 	m.state = StateRunning
 	go m.readOutput()
 	go m.readError()
@@ -88,7 +90,8 @@ func (m *Manager) SendMessage(msg string) error {
 		return fmt.Errorf("process already exited")
 	}
 	m.setState(StateRunning)
-	_, err := io.WriteString(m.stdin, msg+"\n")
+	n, err := io.WriteString(m.stdin, msg+"\n")
+	log.Printf("[agent] sent %d bytes to stdin", n)
 	return err
 }
 
@@ -114,18 +117,24 @@ func (m *Manager) Done() <-chan struct{} {
 func (m *Manager) readOutput() {
 	reader := bufio.NewReader(m.stdout)
 	var buffer strings.Builder
+	lineCount := 0
 	for {
 		line, err := reader.ReadString('\n')
 		if err != nil {
 			if err != io.EOF {
+				log.Printf("[agent stdout] read error: %v", err)
 				m.events <- ProcessEvent{Type: "error", Message: err.Error()}
 			}
 			break
 		}
+		lineCount++
+		if lineCount <= 3 || lineCount%100 == 0 {
+			log.Printf("[agent stdout] line %d: %q", lineCount, truncate(line, 80))
+		}
 		m.events <- ProcessEvent{Type: "output", Data: line}
 		buffer.WriteString(line)
 	}
-	// After output stream ends, check if process is waiting
+	log.Printf("[agent stdout] closed after %d lines (%d bytes)", lineCount, buffer.Len())
 	final := buffer.String()
 	if m.state != StateExited && isWaitingForInput(final) {
 		m.setState(StateNeedsAttention)
@@ -133,26 +142,42 @@ func (m *Manager) readOutput() {
 	}
 }
 
+func truncate(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n] + "..."
+}
+
 func (m *Manager) readError() {
 	reader := bufio.NewReader(m.stderr)
+	lineCount := 0
 	for {
 		line, err := reader.ReadString('\n')
 		if err != nil {
 			if err != io.EOF {
+				log.Printf("[agent stderr] read error: %v", err)
 				m.events <- ProcessEvent{Type: "error", Message: err.Error()}
 			}
 			break
 		}
+		lineCount++
+		if lineCount <= 3 || lineCount%100 == 0 {
+			log.Printf("[agent stderr] line %d: %q", lineCount, truncate(line, 80))
+		}
 		m.events <- ProcessEvent{Type: "output", Data: line}
 	}
+	log.Printf("[agent stderr] closed after %d lines", lineCount)
 }
 
 func (m *Manager) wait() {
 	err := m.cmd.Wait()
+	log.Printf("[agent] process exited: %v", err)
 	m.setState(StateExited)
 	m.events <- ProcessEvent{Type: "status", Status: string(StateExited)}
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
+			log.Printf("[agent] exit code: %d", exitErr.ExitCode())
 			m.events <- ProcessEvent{Type: "error", Message: fmt.Sprintf("exited with code %d", exitErr.ExitCode())}
 		}
 	}
@@ -198,11 +223,42 @@ func StripANSI(s string) string {
 	i := 0
 	for i < len(s) {
 		if s[i] == '\x1b' {
-			// Skip until 'm' (end of ANSI sequence)
 			i++
-			for i < len(s) && s[i] != 'm' {
-				i++
+			if i >= len(s) {
+				break
 			}
+			// ESC [ (CSI): parameter bytes 0x30-0x3F, intermediate 0x20-0x2F, final 0x40-0x7E
+			if s[i] == '[' {
+				i++
+				for i < len(s) && (s[i] >= 0x30 && s[i] <= 0x3F || s[i] >= 0x20 && s[i] <= 0x2F) {
+					i++
+				}
+				if i < len(s) {
+					i++ // skip final byte
+				}
+			} else if s[i] == ']' {
+				// OSC sequence: terminated by BEL or ESC \
+				i++
+				for i < len(s) && s[i] != '\x07' && !(s[i] == '\x1b' && i+1 < len(s) && s[i+1] == '\\') {
+					i++
+				}
+				if i < len(s) && s[i] == '\x1b' {
+					i += 2 // skip ESC + backslash
+				} else if i < len(s) {
+					i++ // skip BEL
+				}
+			} else {
+				// Two-character escape sequence (e.g. ESC c, ESC (, ESC ))
+				if i < len(s) {
+					i++
+				}
+			}
+		} else if s[i] == '\r' {
+			// Replace carriage returns with newlines
+			result.WriteByte('\n')
+			i++
+		} else if s[i] == '\x07' {
+			// Strip BEL characters
 			i++
 		} else {
 			result.WriteByte(s[i])
