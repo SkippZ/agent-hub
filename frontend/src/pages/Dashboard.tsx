@@ -1,10 +1,15 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { Card, CardContent, CardHeader } from '../components/ui/card'
+import { Button } from '../components/ui/button'
 import { StatusBadge } from '../components/StatusBadge'
+import { NewSessionDialog } from '../components/NewSessionDialog'
 import type { Session } from '../types'
 
 export function Dashboard() {
+  const [showNewSession, setShowNewSession] = useState(false)
+
   const { data: sessions, isLoading } = useQuery({
     queryKey: ['sessions'],
     queryFn: api.listSessions,
@@ -17,22 +22,36 @@ export function Dashboard() {
     <div className="animate-in">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Dashboard</h1>
+        <Button onClick={() => setShowNewSession(true)}>+ New Session</Button>
       </div>
 
       {isLoading && (
-        <div className="text-center text-muted-foreground py-12">
-          Loading sessions...
+        <div className="text-center text-muted-foreground py-12">Loading sessions...</div>
+      )}
+
+      {!isLoading && (!sessions || sessions.length === 0) && (
+        <div className="text-center text-muted-foreground py-12 border border-dashed border-border rounded-lg">
+          <p className="mb-2">No sessions yet</p>
+          <Button variant="outline" onClick={() => setShowNewSession(true)}>
+            Start your first agent session
+          </Button>
         </div>
       )}
 
-      <SessionGroup title="Running" status="running" sessions={groups.running || []} />
-      <SessionGroup title="Needs Attention" status="needs_attention" sessions={groups.needs_attention || []} />
-      <SessionGroup title="Done" status="done" sessions={groups.done || []} />
+      <SessionGroup title="Running" sessions={getGroup(groups, 'running')} />
+      <SessionGroup title="Needs Attention" sessions={getGroup(groups, 'needs_attention')} />
+      <SessionGroup title="Done" sessions={getGroup(groups, 'done')} />
+
+      <NewSessionDialog open={showNewSession} onClose={() => setShowNewSession(false)} />
     </div>
   )
 }
 
-function SessionGroup({ title, sessions }: { title: string; status: string; sessions: Session[] }) {
+function getGroup(groups: Record<string, Session[]>, key: string): Session[] {
+  return groups[key] || []
+}
+
+function SessionGroup({ title, sessions }: { title: string; sessions: Session[] }) {
   if (sessions.length === 0) return null
 
   return (
@@ -68,7 +87,7 @@ function SessionCard({ session }: { session: Session }) {
             {session.task_description}
           </p>
           <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-            <span>{session.feature_branch}</span>
+            <span className="font-mono">{session.feature_branch}</span>
             <span>·</span>
             <span>{new Date(session.created_at).toLocaleString()}</span>
           </div>
