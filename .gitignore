@@ -1,0 +1,28 @@
+# Binaries
+agent-hub
+backend/agent-hub
+*.exe
+
+# Database
+*.db
+*.db-journal
+*.db-wal
+
+# Config (personal paths)
+config.json
+backend/config.json
+
+# Node
+node_modules/
+frontend/node_modules/
+
+# Build output
+frontend/dist/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local

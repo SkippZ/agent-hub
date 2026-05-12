@@ -1,7 +1,0 @@
-{
-  "projects_dir": "/Users/marvinknapp/Documents/projekte",
-  "agents": {
-    "claude-code": "claude",
-    "opencode": "opencode"
-  }
-}
