@@ -32,7 +32,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 export const api = {
   health: () => request<{ status: string }>('/api/health'),
 
-  listSessions: () => request<Session[]>('/api/sessions'),
+  listSessions: (q?: string) => request<Session[]>(q ? `/api/sessions?q=${encodeURIComponent(q)}` : '/api/sessions'),
 
   getSession: (id: string) => request<Session>(`/api/sessions/${id}`),
 

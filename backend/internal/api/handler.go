@@ -77,7 +77,8 @@ func (h *Handler) handleHealth(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) handleListSessions(w http.ResponseWriter, r *http.Request) {
-	sessions, err := h.store.ListSessions()
+	search := r.URL.Query().Get("q")
+	sessions, err := h.store.ListSessions(search)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, err.Error())
 		return

@@ -100,13 +100,25 @@ func (s *Store) SetExternalSessionID(id, externalID string) error {
 	return err
 }
 
-func (s *Store) ListSessions() ([]*types.Session, error) {
-	rows, err := s.db.Query(
-		`SELECT id, agent_type, project_path, project_name, base_branch, feature_branch,
-		        worktree_path, task_description, status, created_at, updated_at, exited_at,
-		        external_session_id
-		 FROM sessions ORDER BY created_at DESC`,
-	)
+func (s *Store) ListSessions(search string) ([]*types.Session, error) {
+	var rows *sql.Rows
+	var err error
+	if search != "" {
+		rows, err = s.db.Query(
+			`SELECT id, agent_type, project_path, project_name, base_branch, feature_branch,
+			        worktree_path, task_description, status, created_at, updated_at, exited_at,
+			        external_session_id
+			 FROM sessions WHERE task_description LIKE ? ORDER BY created_at DESC`,
+			"%"+search+"%",
+		)
+	} else {
+		rows, err = s.db.Query(
+			`SELECT id, agent_type, project_path, project_name, base_branch, feature_branch,
+			        worktree_path, task_description, status, created_at, updated_at, exited_at,
+			        external_session_id
+			 FROM sessions ORDER BY created_at DESC`,
+		)
+	}
 	if err != nil {
 		return nil, err
 	}
