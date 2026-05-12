@@ -8,6 +8,8 @@ import { Textarea } from '../components/ui/textarea'
 import { StatusBadge } from '../components/StatusBadge'
 import { Markdown } from '../components/Markdown'
 import { useWebSocket } from '../hooks/useWebSocket'
+import Markdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import type { Message, SessionStatus } from '../types'
 
 export function SessionDetail() {
@@ -154,8 +156,10 @@ export function SessionDetail() {
                       <span className="ml-2 inline-block h-2 w-2 rounded-full bg-blue-400 animate-pulse" />
                     )}
                   </div>
-                  <div className="text-sm">
-                    <Markdown content={msg.content} />
+                  <div className="prose prose-sm dark:prose-invert max-w-none">
+                    <Markdown remarkPlugins={[remarkGfm]}>
+                      {msg.content}
+                    </Markdown>
                   </div>
                 </div>
               ))}
