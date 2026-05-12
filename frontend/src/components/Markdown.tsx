@@ -1,6 +1,66 @@
 import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import type { ReactNode } from 'react'
+import { useState, useEffect } from 'react'
+import { createHighlighter, type Highlighter } from 'shiki'
+
+const LANGUAGES = [
+  'typescript', 'javascript', 'python', 'go', 'bash', 'json',
+  'html', 'css', 'yaml', 'markdown', 'diff', 'jsx', 'tsx',
+  'rust', 'sql', 'shell', 'c', 'cpp', 'java', 'ruby', 'php',
+]
+
+let hlSingleton: Highlighter | null = null
+
+async function ensureHighlighter(): Promise<Highlighter> {
+  if (!hlSingleton) {
+    hlSingleton = await createHighlighter({
+      themes: ['dark-plus'],
+      langs: LANGUAGES,
+    })
+  }
+  return hlSingleton
+}
+
+function HighlightedCode({ lang, code }: { lang: string; code: string }) {
+  const [html, setHtml] = useState<string | null>(null)
+
+  useEffect(() => {
+    ensureHighlighter().then((hl) => {
+      try {
+        setHtml(hl.codeToHtml(code, { lang: lang || 'text', theme: 'dark-plus' }))
+      } catch {
+        setHtml(null)
+      }
+    })
+  }, [lang, code])
+
+  if (html) {
+    return <div className="text-xs" dangerouslySetInnerHTML={{ __html: html }} />
+  }
+
+  return (
+    <pre className="p-3 overflow-x-auto text-xs font-mono">
+      <code>{code}</code>
+    </pre>
+  )
+}
+
+function CopyButton({ code }: { code: string }) {
+  const [copied, setCopied] = useState(false)
+
+  return (
+    <button
+      onClick={() => {
+        navigator.clipboard.writeText(code)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+      }}
+      className="text-muted-foreground hover:text-foreground transition-colors text-xs font-sans"
+    >
+      {copied ? 'Copied!' : 'Copy'}
+    </button>
+  )
+}
 
 const components: Components = {
   p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
@@ -16,12 +76,20 @@ const components: Components = {
         </code>
       )
     }
+
+    const lang = className?.replace(/^language-/, '') || ''
+    const code = String(children).replace(/\n$/, '')
+
     return (
-      <pre className="bg-muted rounded-lg p-3 my-2 overflow-x-auto text-xs font-mono">
-        <code className={className} {...props}>
-          {children}
-        </code>
-      </pre>
+      <div className="relative my-3 rounded-lg border border-border overflow-hidden">
+        <div className="flex items-center justify-between px-3 py-1.5 bg-muted/50 border-b border-border">
+          <span className="text-xs text-muted-foreground font-mono">{lang || 'code'}</span>
+          <CopyButton code={code} />
+        </div>
+        <div className="max-h-96 overflow-y-auto">
+          <HighlightedCode lang={lang} code={code} />
+        </div>
+      </div>
     )
   },
   pre: ({ children }) => <>{children}</>,
