@@ -173,6 +173,12 @@ export function SessionDetail() {
                 <Textarea
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                      e.preventDefault()
+                      if (input.trim()) sendMessage.mutate(input)
+                    }
+                  }}
                   placeholder="Type a message..."
                   rows={2}
                   className="flex-1"
