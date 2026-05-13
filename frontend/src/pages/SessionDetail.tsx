@@ -7,6 +7,7 @@ import { Button } from '../components/ui/button'
 import { Textarea } from '../components/ui/textarea'
 import { StatusBadge } from '../components/StatusBadge'
 import { Markdown } from '../components/Markdown'
+import { DiffView } from '../components/DiffView'
 import { useWebSocket } from '../hooks/useWebSocket'
 import type { Message, SessionStatus } from '../types'
 
@@ -203,11 +204,9 @@ export function SessionDetail() {
                       {snap.summary && <> — {snap.summary}</>}
                     </div>
                   )}
-                  <pre className="text-xs font-mono whitespace-pre-wrap overflow-x-auto max-h-48 overflow-y-auto">
-                    {snap.diff.length > 2000
-                      ? snap.diff.slice(0, 2000) + '\n... (truncated)'
-                      : snap.diff}
-                  </pre>
+                  <div className="overflow-x-auto max-h-64 overflow-y-auto scrollbar-thin">
+                    <DiffView diff={snap.diff} />
+                  </div>
                 </div>
               ))}
             </div>
