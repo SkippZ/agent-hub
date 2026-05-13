@@ -57,6 +57,20 @@ body {
   }
 }
 
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: oklch(0.3 0 0);
+  border-radius: 3px;
+}
+
 .shiki {
   margin: 0;
   padding: 12px;
