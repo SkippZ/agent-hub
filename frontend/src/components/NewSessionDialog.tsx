@@ -117,6 +117,14 @@ export function NewSessionDialog({ open, onClose }: NewSessionDialogProps) {
               <Textarea
                 value={taskDescription}
                 onChange={(e) => setTaskDescription(e.target.value)}
+                onKeyDown={(e) => {
+                  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                    e.preventDefault()
+                    if (projectName && baseBranch && taskDescription && !createSession.isPending) {
+                      createSession.mutate()
+                    }
+                  }
+                }}
                 placeholder="Describe what the agent should do..."
                 rows={3}
               />
