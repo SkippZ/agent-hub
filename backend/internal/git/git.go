@@ -92,13 +92,27 @@ func RemoveWorktree(repoPath, worktreePath string) error {
 }
 
 func GetDiff(repoPath, baseRef string) (string, error) {
+	// Committed changes on the feature branch since divergence
 	cmd := exec.Command("git", "diff", baseRef+"...")
 	cmd.Dir = repoPath
 	out, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("get diff: %w", err)
 	}
-	return string(out), nil
+
+	// Uncommitted changes (staged + unstaged working tree)
+	cmd2 := exec.Command("git", "diff", "HEAD")
+	cmd2.Dir = repoPath
+	out2, _ := cmd2.Output()
+
+	var parts []string
+	if s := strings.TrimSpace(string(out)); s != "" {
+		parts = append(parts, s)
+	}
+	if s := strings.TrimSpace(string(out2)); s != "" {
+		parts = append(parts, s)
+	}
+	return strings.Join(parts, "\n"), nil
 }
 
 func GetRecentCommits(repoPath, baseRef string, limit int) (string, error) {
