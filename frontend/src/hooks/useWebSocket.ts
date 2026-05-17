@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react'
 
 interface WSMessage {
-  type: 'output' | 'status' | 'error'
+  type: 'output' | 'status' | 'error' | 'reasoning'
   data?: string
   status?: string
   message?: string
@@ -31,9 +31,9 @@ export function useWebSocket(sessionId: string | undefined, onMessage: MessageHa
       ws.onmessage = (event) => {
         try {
           const msg = JSON.parse(event.data) as WSMessage
-          if (msg.type === 'output') {
+          if (msg.type === 'output' || msg.type === 'reasoning') {
             const preview = (msg.data ?? '').slice(0, 100)
-            console.log(`[WS] output: ${JSON.stringify(preview)}`)
+            console.log(`[WS] ${msg.type}: ${JSON.stringify(preview)}`)
           } else {
             console.log(`[WS] ${msg.type}:`, msg.status ?? msg.message ?? '')
           }
