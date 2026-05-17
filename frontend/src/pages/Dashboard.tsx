@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Navigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { Card, CardContent } from '../components/ui/card'
@@ -14,8 +14,7 @@ export function Dashboard() {
   })
 
   if (selectedProject) {
-    navigate(`/project/${encodeURIComponent(selectedProject.name)}`, { replace: true })
-    return null
+    return <Navigate to={`/project/${encodeURIComponent(selectedProject.name)}`} replace />
   }
 
   const projectsToShow = projectsList || projects
