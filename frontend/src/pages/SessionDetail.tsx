@@ -15,6 +15,7 @@ export function SessionDetail() {
   const { id } = useParams<{ id: string }>()
   const queryClient = useQueryClient()
   const [liveOutput, setLiveOutput] = useState<string[]>([])
+  const [reasoningOutput, setReasoningOutput] = useState<string[]>([])
   const [input, setInput] = useState('')
   const outputEndRef = useRef<HTMLDivElement>(null)
 
@@ -53,6 +54,8 @@ export function SessionDetail() {
   useWebSocket(id, (msg) => {
     if (msg.type === 'output') {
       setLiveOutput((prev) => [...prev, msg.data!])
+    } else if (msg.type === 'reasoning') {
+      setReasoningOutput((prev) => [...prev, msg.data!])
     } else if (msg.type === 'status') {
       queryClient.invalidateQueries({ queryKey: ['session', id] })
     }
@@ -62,28 +65,8 @@ export function SessionDetail() {
     outputEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [liveOutput, messages])
 
-  // Combine stored messages with live output for display
-  const allMessages: { role: string; content: string; key: string }[] = []
   const storedMessages = messages || []
   const hasLiveOutput = liveOutput.length > 0
-  const lastStored = storedMessages[storedMessages.length - 1]
-  const lastLiveIdx = liveOutput.length - 1
-
-  storedMessages.forEach((m, i) => {
-    // Don't duplicate if live output already shows recent agent message
-    if (hasLiveOutput && m.role === 'agent' && i >= storedMessages.length - 3) {
-      return
-    }
-    allMessages.push({ role: m.role, content: m.content, key: m.id })
-  })
-
-  if (hasLiveOutput) {
-    allMessages.push({
-      role: 'agent',
-      content: liveOutput.join(''),
-      key: 'live',
-    })
-  }
 
   if (sessionLoading || messagesLoading) {
     return <div className="text-center text-muted-foreground py-12">Loading session...</div>
@@ -140,26 +123,50 @@ export function SessionDetail() {
               Chat
             </h2>
             <div className="space-y-3 max-h-[50vh] overflow-y-auto mb-4">
-              {allMessages.map((msg) => (
-                <div
-                  key={msg.key}
-                  className={`rounded-lg p-3 text-sm ${
-                    msg.role === 'user'
-                      ? 'bg-primary/10 border border-primary/20'
-                      : 'bg-secondary border border-border'
-                  }`}
-                >
-                  <div className="text-xs text-muted-foreground mb-1 font-medium">
-                    {msg.role === 'user' ? 'You' : 'Agent'}
-                    {msg.key === 'live' && (
-                      <span className="ml-2 inline-block h-2 w-2 rounded-full bg-blue-400 animate-pulse" />
-                    )}
+              {storedMessages.map((m, i) => {
+                if (hasLiveOutput && m.role === 'agent' && i >= storedMessages.length - 3) {
+                  return null
+                }
+                return (
+                  <div
+                    key={m.id}
+                    className={`rounded-lg p-3 text-sm ${
+                      m.role === 'user'
+                        ? 'bg-primary/10 border border-primary/20'
+                        : 'bg-secondary border border-border'
+                    }`}
+                  >
+                    <div className="text-xs text-muted-foreground mb-1 font-medium">
+                      {m.role === 'user' ? 'You' : 'Agent'}
+                    </div>
+                    <div className="prose prose-sm dark:prose-invert max-w-none">
+                      <Markdown content={m.content} />
+                    </div>
                   </div>
-                  <div className="prose prose-sm dark:prose-invert max-w-none">
-                    <Markdown content={msg.content} />
+                )
+              })}
+              {reasoningOutput.length > 0 && (
+                <div className="rounded-lg p-3 text-sm border-l-4 border-yellow-500/50 dark:border-yellow-500/40 bg-yellow-500/[0.03] border border-border">
+                  <div className="text-xs text-yellow-600 dark:text-yellow-400 mb-1 font-medium flex items-center gap-1.5">
+                    <span className="inline-block h-2 w-2 rounded-full bg-yellow-500 animate-pulse" />
+                    Thinking
+                  </div>
+                  <div className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground">
+                    <Markdown content={reasoningOutput.join('')} />
                   </div>
                 </div>
-              ))}
+              )}
+              {liveOutput.length > 0 && (
+                <div className="rounded-lg p-3 text-sm bg-secondary border border-border">
+                  <div className="text-xs text-muted-foreground mb-1 font-medium flex items-center gap-1.5">
+                    Agent
+                    <span className="inline-block h-2 w-2 rounded-full bg-blue-400 animate-pulse" />
+                  </div>
+                  <div className="prose prose-sm dark:prose-invert max-w-none">
+                    <Markdown content={liveOutput.join('')} />
+                  </div>
+                </div>
+              )}
               <div ref={outputEndRef} />
             </div>
 

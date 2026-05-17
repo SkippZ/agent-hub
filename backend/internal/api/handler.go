@@ -662,14 +662,14 @@ func (h *Handler) relayOpenCodeEvents(ctx context.Context, sessionID string, ocC
 							Data: text,
 						})
 					}
-				case "reasoning":
-					text, _ := part["text"].(string)
-					if text != "" {
-						h.wsHub.Broadcast(sessionID, WSMessage{
-							Type: "output",
-							Data: text,
-						})
-					}
+			case "reasoning":
+				text, _ := part["text"].(string)
+				if text != "" {
+					h.wsHub.Broadcast(sessionID, WSMessage{
+						Type: "reasoning",
+						Data: text,
+					})
+				}
 				case "step-finish":
 					log.Printf("[opencode-relay %s] step-finish, snapshotting", sessionID)
 					storePending()
