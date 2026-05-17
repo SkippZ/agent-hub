@@ -1,4 +1,4 @@
-import type { Session, Message, CodeSnapshot, CreateSessionRequest, SessionStatus, Project, Branch, Config } from '../types'
+import type { Session, Message, CodeSnapshot, CreateSessionRequest, SessionStatus, Project, Branch, Config, Skill } from '../types'
 
 const BASE = ''
 
@@ -73,6 +73,8 @@ export const api = {
 
   listBranches: (name: string) =>
     request<Branch[]>(`/api/projects/${encodeURIComponent(name)}/branches`),
+
+  listSkills: () => request<Skill[]>('/api/skills'),
 
   getConfig: () => request<Config>('/api/config'),
 

@@ -1,6 +1,11 @@
 export type SessionStatus = 'running' | 'needs_attention' | 'done'
 export type AgentType = 'opencode' | 'claude-code'
 
+export interface Skill {
+  name: string
+  description: string
+}
+
 export interface Session {
   id: string
   agent_type: AgentType
@@ -10,6 +15,7 @@ export interface Session {
   feature_branch: string
   worktree_path: string
   task_description: string
+  skill_name?: string
   status: SessionStatus
   created_at: string
   updated_at: string
@@ -38,6 +44,7 @@ export interface CreateSessionRequest {
   project_name: string
   base_branch: string
   task_description: string
+  skill_name?: string
 }
 
 export interface Project {

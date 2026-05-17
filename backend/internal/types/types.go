@@ -17,6 +17,13 @@ const (
 	AgentClaudeCode AgentType = "claude-code"
 )
 
+type SkillName string
+
+type Skill struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
 type Session struct {
 	ID                string        `json:"id"`
 	AgentType         AgentType     `json:"agent_type"`
@@ -26,6 +33,7 @@ type Session struct {
 	FeatureBranch     string        `json:"feature_branch"`
 	WorktreePath      string        `json:"worktree_path"`
 	TaskDescription   string        `json:"task_description"`
+	SkillName         string        `json:"skill_name,omitempty"`
 	Status            SessionStatus `json:"status"`
 	CreatedAt         time.Time     `json:"created_at"`
 	UpdatedAt         time.Time     `json:"updated_at"`
@@ -55,6 +63,7 @@ type CreateSessionRequest struct {
 	ProjectName     string    `json:"project_name"`
 	BaseBranch      string    `json:"base_branch"`
 	TaskDescription string    `json:"task_description"`
+	SkillName       string    `json:"skill_name"`
 }
 
 type SendMessageRequest struct {

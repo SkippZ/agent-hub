@@ -38,9 +38,10 @@ type Handler struct {
 	usedPorts  map[int]bool
 	mu         sync.Mutex
 	fileServer http.Handler
+	skillsDir  string
 }
 
-func New(store *db.Store, cfg *types.Config) *Handler {
+func New(store *db.Store, cfg *types.Config, projectRoot string) *Handler {
 	return &Handler{
 		store:            store,
 		cfg:              cfg,
@@ -48,6 +49,7 @@ func New(store *db.Store, cfg *types.Config) *Handler {
 		agents:           make(map[string]*agent.Manager),
 		opencodeSessions: make(map[string]*opencodeSessionState),
 		usedPorts:        make(map[int]bool),
+		skillsDir:        filepath.Join(projectRoot, ".opencode", "skills"),
 	}
 }
 
@@ -65,6 +67,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 
 	mux.HandleFunc("GET /api/projects", h.handleListProjects)
 	mux.HandleFunc("GET /api/projects/{name}/branches", h.handleListBranches)
+	mux.HandleFunc("GET /api/skills", h.handleListSkills)
 
 	mux.HandleFunc("GET /api/config", h.handleGetConfig)
 	mux.HandleFunc("PUT /api/config", h.handleUpdateConfig)
@@ -132,6 +135,7 @@ func (h *Handler) handleCreateSession(w http.ResponseWriter, r *http.Request) {
 		FeatureBranch:   featureBranch,
 		WorktreePath:    worktreePath,
 		TaskDescription: req.TaskDescription,
+		SkillName:       req.SkillName,
 		Status:          types.StatusRunning,
 		CreatedAt:       now,
 		UpdatedAt:       now,
@@ -375,6 +379,60 @@ func (h *Handler) handleStopSession(w http.ResponseWriter, r *http.Request) {
 
 	h.store.SetSessionExited(id)
 	respondJSON(w, http.StatusOK, map[string]string{"status": "stopped"})
+}
+
+func (h *Handler) handleListSkills(w http.ResponseWriter, r *http.Request) {
+	entries, err := os.ReadDir(h.skillsDir)
+	if err != nil {
+		respondJSON(w, http.StatusOK, []*types.Skill{})
+		return
+	}
+
+	var skills []*types.Skill
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		skillPath := filepath.Join(h.skillsDir, entry.Name(), "SKILL.md")
+		data, err := os.ReadFile(skillPath)
+		if err != nil {
+			continue
+		}
+		skill := parseSkillFrontmatter(entry.Name(), string(data))
+		if skill != nil {
+			skills = append(skills, skill)
+		}
+	}
+	if skills == nil {
+		skills = []*types.Skill{}
+	}
+	respondJSON(w, http.StatusOK, skills)
+}
+
+func parseSkillFrontmatter(dirName, content string) *types.Skill {
+	start := strings.Index(content, "---")
+	if start != 0 {
+		return &types.Skill{Name: dirName, Description: ""}
+	}
+	end := strings.Index(content[3:], "---")
+	if end < 0 {
+		return &types.Skill{Name: dirName, Description: ""}
+	}
+	frontmatter := content[3 : end+3]
+	skill := &types.Skill{Name: dirName}
+	for _, line := range strings.Split(frontmatter, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "name:") {
+			if v := strings.TrimSpace(line[5:]); v != "" {
+				skill.Name = v
+			}
+		} else if strings.HasPrefix(line, "description:") {
+			if v := strings.TrimSpace(line[12:]); v != "" {
+				skill.Description = v
+			}
+		}
+	}
+	return skill
 }
 
 func (h *Handler) handleListProjects(w http.ResponseWriter, r *http.Request) {

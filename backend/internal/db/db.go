@@ -74,19 +74,20 @@ func (s *Store) migrate() error {
 		return err
 	}
 
-	// Add external_session_id column if not present (migration for existing DBs)
+	// Add columns if not present (migrations for existing DBs)
 	_, _ = s.db.Exec(`ALTER TABLE sessions ADD COLUMN external_session_id TEXT`)
+	_, _ = s.db.Exec(`ALTER TABLE sessions ADD COLUMN skill_name TEXT`)
 
 	return nil
 }
 
 func (s *Store) CreateSession(session *types.Session) error {
 	_, err := s.db.Exec(
-		`INSERT INTO sessions (id, agent_type, project_path, project_name, base_branch, feature_branch, worktree_path, task_description, status, created_at, updated_at, external_session_id)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO sessions (id, agent_type, project_path, project_name, base_branch, feature_branch, worktree_path, task_description, skill_name, status, created_at, updated_at, external_session_id)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		session.ID, session.AgentType, session.ProjectPath, session.ProjectName,
 		session.BaseBranch, session.FeatureBranch, session.WorktreePath,
-		session.TaskDescription, session.Status, session.CreatedAt, session.UpdatedAt,
+		session.TaskDescription, session.SkillName, session.Status, session.CreatedAt, session.UpdatedAt,
 		session.ExternalSessionID,
 	)
 	return err
@@ -105,7 +106,7 @@ func (s *Store) ListSessions(search, project string) ([]*types.Session, error) {
 	var err error
 
 	query := `SELECT id, agent_type, project_path, project_name, base_branch, feature_branch,
-	                 worktree_path, task_description, status, created_at, updated_at, exited_at,
+	                 worktree_path, task_description, skill_name, status, created_at, updated_at, exited_at,
 	                 external_session_id
 	          FROM sessions`
 	var conditions []string
@@ -142,7 +143,7 @@ func (s *Store) ListSessions(search, project string) ([]*types.Session, error) {
 		if err := rows.Scan(
 			&s.ID, &s.AgentType, &s.ProjectPath, &s.ProjectName,
 			&s.BaseBranch, &s.FeatureBranch, &s.WorktreePath,
-			&s.TaskDescription, &s.Status, &s.CreatedAt, &s.UpdatedAt, &exitedAt,
+			&s.TaskDescription, &s.SkillName, &s.Status, &s.CreatedAt, &s.UpdatedAt, &exitedAt,
 			&extID,
 		); err != nil {
 			return nil, err
@@ -164,13 +165,13 @@ func (s *Store) GetSession(id string) (*types.Session, error) {
 	var extID sql.NullString
 	err := s.db.QueryRow(
 		`SELECT id, agent_type, project_path, project_name, base_branch, feature_branch,
-		        worktree_path, task_description, status, created_at, updated_at, exited_at,
+		        worktree_path, task_description, skill_name, status, created_at, updated_at, exited_at,
 		        external_session_id
 		 FROM sessions WHERE id = ?`, id,
 	).Scan(
 		&sess.ID, &sess.AgentType, &sess.ProjectPath, &sess.ProjectName,
 		&sess.BaseBranch, &sess.FeatureBranch, &sess.WorktreePath,
-		&sess.TaskDescription, &sess.Status, &sess.CreatedAt, &sess.UpdatedAt, &exitedAt,
+		&sess.TaskDescription, &sess.SkillName, &sess.Status, &sess.CreatedAt, &sess.UpdatedAt, &exitedAt,
 		&extID,
 	)
 	if err != nil {

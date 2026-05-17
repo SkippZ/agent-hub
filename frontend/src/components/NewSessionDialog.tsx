@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader } from './ui/card'
 import { Input } from './ui/input'
 import { Textarea } from './ui/textarea'
 import { Select } from './ui/select'
-import type { AgentType } from '../types'
+import type { AgentType, Skill } from '../types'
 
 interface NewSessionDialogProps {
   open: boolean
@@ -26,6 +26,12 @@ export function NewSessionDialog({ open, onClose, initialProject }: NewSessionDi
   const [agentType, setAgentType] = useState<AgentType>('opencode')
   const [baseBranch, setBaseBranch] = useState('')
   const [taskDescription, setTaskDescription] = useState('')
+  const [skillName, setSkillName] = useState('')
+
+  const { data: skills } = useQuery({
+    queryKey: ['skills'],
+    queryFn: api.listSkills,
+  })
 
   const { data: branches } = useQuery({
     queryKey: ['branches', projectName],
@@ -40,6 +46,7 @@ export function NewSessionDialog({ open, onClose, initialProject }: NewSessionDi
         project_name: projectName,
         base_branch: baseBranch,
         task_description: taskDescription,
+        skill_name: skillName || undefined,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sessions'] })
@@ -53,6 +60,7 @@ export function NewSessionDialog({ open, onClose, initialProject }: NewSessionDi
     setAgentType('opencode')
     setBaseBranch('')
     setTaskDescription('')
+    setSkillName('')
   }
 
   if (!open) return null
@@ -99,6 +107,16 @@ export function NewSessionDialog({ open, onClose, initialProject }: NewSessionDi
                   { value: 'opencode', label: 'OpenCode' },
                   { value: 'claude-code', label: 'Claude Code' },
                 ]}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Skill (optional)</label>
+              <Select
+                value={skillName}
+                onChange={(e) => setSkillName(e.target.value)}
+                placeholder="No skill..."
+                options={(skills || []).map((s) => ({ value: s.name, label: s.name }))}
               />
             </div>
 

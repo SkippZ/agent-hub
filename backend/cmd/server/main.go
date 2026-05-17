@@ -32,7 +32,7 @@ func main() {
 	}
 	defer store.Close()
 
-	handler := api.New(store, cfg)
+	handler := api.New(store, cfg, root)
 
 	mux := http.NewServeMux()
 	handler.Register(mux)
