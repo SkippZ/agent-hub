@@ -100,25 +100,35 @@ func (s *Store) SetExternalSessionID(id, externalID string) error {
 	return err
 }
 
-func (s *Store) ListSessions(search string) ([]*types.Session, error) {
+func (s *Store) ListSessions(search, project string) ([]*types.Session, error) {
 	var rows *sql.Rows
 	var err error
+
+	query := `SELECT id, agent_type, project_path, project_name, base_branch, feature_branch,
+	                 worktree_path, task_description, status, created_at, updated_at, exited_at,
+	                 external_session_id
+	          FROM sessions`
+	var conditions []string
+	var args []any
+
 	if search != "" {
-		rows, err = s.db.Query(
-			`SELECT id, agent_type, project_path, project_name, base_branch, feature_branch,
-			        worktree_path, task_description, status, created_at, updated_at, exited_at,
-			        external_session_id
-			 FROM sessions WHERE task_description LIKE ? ORDER BY created_at DESC`,
-			"%"+search+"%",
-		)
-	} else {
-		rows, err = s.db.Query(
-			`SELECT id, agent_type, project_path, project_name, base_branch, feature_branch,
-			        worktree_path, task_description, status, created_at, updated_at, exited_at,
-			        external_session_id
-			 FROM sessions ORDER BY created_at DESC`,
-		)
+		conditions = append(conditions, "task_description LIKE ?")
+		args = append(args, "%"+search+"%")
 	}
+	if project != "" {
+		conditions = append(conditions, "project_name = ?")
+		args = append(args, project)
+	}
+
+	if len(conditions) > 0 {
+		query += " WHERE " + conditions[0]
+		for i := 1; i < len(conditions); i++ {
+			query += " AND " + conditions[i]
+		}
+	}
+	query += " ORDER BY created_at DESC"
+
+	rows, err = s.db.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}

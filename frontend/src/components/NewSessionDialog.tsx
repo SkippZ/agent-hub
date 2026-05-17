@@ -11,9 +11,10 @@ import type { AgentType } from '../types'
 interface NewSessionDialogProps {
   open: boolean
   onClose: () => void
+  initialProject?: string
 }
 
-export function NewSessionDialog({ open, onClose }: NewSessionDialogProps) {
+export function NewSessionDialog({ open, onClose, initialProject }: NewSessionDialogProps) {
   const queryClient = useQueryClient()
 
   const { data: projects } = useQuery({
@@ -21,7 +22,7 @@ export function NewSessionDialog({ open, onClose }: NewSessionDialogProps) {
     queryFn: api.listProjects,
   })
 
-  const [projectName, setProjectName] = useState('')
+  const [projectName, setProjectName] = useState(initialProject || '')
   const [agentType, setAgentType] = useState<AgentType>('opencode')
   const [baseBranch, setBaseBranch] = useState('')
   const [taskDescription, setTaskDescription] = useState('')
@@ -84,6 +85,7 @@ export function NewSessionDialog({ open, onClose }: NewSessionDialogProps) {
                   setBaseBranch('')
                 }}
                 placeholder="Select project..."
+                disabled={!!initialProject}
                 options={(projects || []).map((p) => ({ value: p.name, label: p.name }))}
               />
             </div>

@@ -78,7 +78,8 @@ func (h *Handler) handleHealth(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) handleListSessions(w http.ResponseWriter, r *http.Request) {
 	search := r.URL.Query().Get("q")
-	sessions, err := h.store.ListSessions(search)
+	project := r.URL.Query().Get("project")
+	sessions, err := h.store.ListSessions(search, project)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, err.Error())
 		return

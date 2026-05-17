@@ -32,7 +32,13 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 export const api = {
   health: () => request<{ status: string }>('/api/health'),
 
-  listSessions: (q?: string) => request<Session[]>(q ? `/api/sessions?q=${encodeURIComponent(q)}` : '/api/sessions'),
+  listSessions: (q?: string, project?: string) => {
+    const params = new URLSearchParams()
+    if (q) params.set('q', q)
+    if (project) params.set('project', project)
+    const qs = params.toString()
+    return request<Session[]>(qs ? `/api/sessions?${qs}` : '/api/sessions')
+  },
 
   getSession: (id: string) => request<Session>(`/api/sessions/${id}`),
 
