@@ -4,6 +4,18 @@ export type AgentType = 'opencode' | 'claude-code'
 export interface Skill {
   name: string
   description: string
+  content: string
+}
+
+export interface CreateSkillRequest {
+  name: string
+  description: string
+  content: string
+}
+
+export interface InstallSkillRequest {
+  url: string
+  name?: string
 }
 
 export interface Session {

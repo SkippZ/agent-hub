@@ -22,6 +22,18 @@ type SkillName string
 type Skill struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
+	Content     string `json:"content"`
+}
+
+type CreateSkillRequest struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Content     string `json:"content"`
+}
+
+type InstallSkillRequest struct {
+	URL  string `json:"url"`
+	Name string `json:"name,omitempty"` // optional: install a specific skill from the repo
 }
 
 type Session struct {

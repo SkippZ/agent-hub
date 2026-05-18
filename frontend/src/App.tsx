@@ -4,6 +4,7 @@ import { Layout } from './components/Layout'
 import { Dashboard } from './pages/Dashboard'
 import { ProjectPage } from './pages/ProjectPage'
 import { SessionDetail } from './pages/SessionDetail'
+import { SkillsPage } from './pages/SkillsPage'
 import { ProjectProvider } from './context/ProjectContext'
 
 const queryClient = new QueryClient()
@@ -18,6 +19,7 @@ export default function App() {
               <Route path="/" element={<Dashboard />} />
               <Route path="/project/:name" element={<ProjectPage />} />
               <Route path="/session/:id" element={<SessionDetail />} />
+              <Route path="/skills" element={<SkillsPage />} />
             </Route>
           </Routes>
         </BrowserRouter>

@@ -1,4 +1,4 @@
-import type { Session, Message, CodeSnapshot, CreateSessionRequest, SessionStatus, Project, Branch, Config, Skill } from '../types'
+import type { Session, Message, CodeSnapshot, CreateSessionRequest, SessionStatus, Project, Branch, Config, Skill, CreateSkillRequest, InstallSkillRequest } from '../types'
 
 const BASE = ''
 
@@ -75,6 +75,27 @@ export const api = {
     request<Branch[]>(`/api/projects/${encodeURIComponent(name)}/branches`),
 
   listSkills: () => request<Skill[]>('/api/skills'),
+
+  createSkill: (data: CreateSkillRequest) =>
+    request<Skill>('/api/skills', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  updateSkill: (name: string, data: CreateSkillRequest) =>
+    request<Skill>(`/api/skills/${encodeURIComponent(name)}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  deleteSkill: (name: string) =>
+    request<void>(`/api/skills/${encodeURIComponent(name)}`, { method: 'DELETE' }),
+
+  installSkill: (data: InstallSkillRequest) =>
+    request<Skill[]>('/api/skills/install', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 
   getConfig: () => request<Config>('/api/config'),
 

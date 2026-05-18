@@ -29,6 +29,9 @@ export function Layout() {
             <Link to="/" className="hover:text-foreground transition-colors">
               Projects
             </Link>
+            <Link to="/skills" className="hover:text-foreground transition-colors">
+              Skills
+            </Link>
           </nav>
         </div>
       </header>

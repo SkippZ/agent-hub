@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -68,6 +69,10 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/projects", h.handleListProjects)
 	mux.HandleFunc("GET /api/projects/{name}/branches", h.handleListBranches)
 	mux.HandleFunc("GET /api/skills", h.handleListSkills)
+	mux.HandleFunc("POST /api/skills", h.handleCreateSkill)
+	mux.HandleFunc("PUT /api/skills/{name}", h.handleUpdateSkill)
+	mux.HandleFunc("DELETE /api/skills/{name}", h.handleDeleteSkill)
+	mux.HandleFunc("POST /api/skills/install", h.handleInstallSkill)
 
 	mux.HandleFunc("GET /api/config", h.handleGetConfig)
 	mux.HandleFunc("PUT /api/config", h.handleUpdateConfig)
@@ -409,17 +414,166 @@ func (h *Handler) handleListSkills(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, skills)
 }
 
+func (h *Handler) handleCreateSkill(w http.ResponseWriter, r *http.Request) {
+	var req types.CreateSkillRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.Name == "" {
+		respondError(w, http.StatusBadRequest, "name is required")
+		return
+	}
+
+	skillDir := filepath.Join(h.skillsDir, req.Name)
+	if _, err := os.Stat(skillDir); err == nil {
+		respondError(w, http.StatusConflict, "skill already exists")
+		return
+	}
+
+	if err := os.MkdirAll(skillDir, 0755); err != nil {
+		respondError(w, http.StatusInternalServerError, fmt.Sprintf("create skill directory: %v", err))
+		return
+	}
+
+	content := req.Content
+	if content == "" {
+		content = fmt.Sprintf("---\nname: %s\ndescription: %s\n---\n", req.Name, req.Description)
+	} else if !strings.HasPrefix(strings.TrimSpace(content), "---") {
+		content = fmt.Sprintf("---\nname: %s\ndescription: %s\n---\n%s", req.Name, req.Description, content)
+	}
+
+	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(content), 0644); err != nil {
+		os.RemoveAll(skillDir)
+		respondError(w, http.StatusInternalServerError, fmt.Sprintf("write SKILL.md: %v", err))
+		return
+	}
+
+	skill := parseSkillFrontmatter(req.Name, content)
+	respondJSON(w, http.StatusCreated, skill)
+}
+
+func (h *Handler) handleUpdateSkill(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+	skillDir := filepath.Join(h.skillsDir, name)
+	if _, err := os.Stat(skillDir); err != nil {
+		respondError(w, http.StatusNotFound, "skill not found")
+		return
+	}
+
+	var req types.CreateSkillRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	content := req.Content
+	if content == "" {
+		respondError(w, http.StatusBadRequest, "content is required")
+		return
+	}
+	if !strings.HasPrefix(strings.TrimSpace(content), "---") {
+		content = fmt.Sprintf("---\nname: %s\ndescription: %s\n---\n%s", req.Name, req.Description, content)
+	}
+
+	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(content), 0644); err != nil {
+		respondError(w, http.StatusInternalServerError, fmt.Sprintf("write SKILL.md: %v", err))
+		return
+	}
+
+	skill := parseSkillFrontmatter(name, content)
+	respondJSON(w, http.StatusOK, skill)
+}
+
+func (h *Handler) handleDeleteSkill(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+	skillDir := filepath.Join(h.skillsDir, name)
+	if _, err := os.Stat(skillDir); err != nil {
+		respondError(w, http.StatusNotFound, "skill not found")
+		return
+	}
+	if err := os.RemoveAll(skillDir); err != nil {
+		respondError(w, http.StatusInternalServerError, fmt.Sprintf("delete skill: %v", err))
+		return
+	}
+	respondJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
+}
+
+func (h *Handler) handleInstallSkill(w http.ResponseWriter, r *http.Request) {
+	var req types.InstallSkillRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.URL == "" {
+		respondError(w, http.StatusBadRequest, "url is required")
+		return
+	}
+
+	tmpDir, err := os.MkdirTemp("", "skill-install-*")
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, fmt.Sprintf("create temp dir: %v", err))
+		return
+	}
+	defer os.RemoveAll(tmpDir)
+
+	cmd := exec.Command("git", "clone", "--depth", "1", req.URL, tmpDir)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		respondError(w, http.StatusBadRequest, fmt.Sprintf("git clone failed: %v\n%s", err, string(output)))
+		return
+	}
+
+	repoSkillsDir := filepath.Join(tmpDir, ".opencode", "skills")
+	entries, err := os.ReadDir(repoSkillsDir)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, "no .opencode/skills directory found in repository")
+		return
+	}
+
+	var installed []*types.Skill
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		if req.Name != "" && entry.Name() != req.Name {
+			continue
+		}
+		srcPath := filepath.Join(repoSkillsDir, entry.Name(), "SKILL.md")
+		data, err := os.ReadFile(srcPath)
+		if err != nil {
+			continue
+		}
+		dstDir := filepath.Join(h.skillsDir, entry.Name())
+		if err := os.MkdirAll(dstDir, 0755); err != nil {
+			continue
+		}
+		if err := os.WriteFile(filepath.Join(dstDir, "SKILL.md"), data, 0644); err != nil {
+			continue
+		}
+		skill := parseSkillFrontmatter(entry.Name(), string(data))
+		if skill != nil {
+			installed = append(installed, skill)
+		}
+	}
+
+	if len(installed) == 0 {
+		respondError(w, http.StatusNotFound, "no skills found to install")
+		return
+	}
+	respondJSON(w, http.StatusCreated, installed)
+}
+
 func parseSkillFrontmatter(dirName, content string) *types.Skill {
+	skill := &types.Skill{Name: dirName, Content: content}
 	start := strings.Index(content, "---")
 	if start != 0 {
-		return &types.Skill{Name: dirName, Description: ""}
+		return skill
 	}
 	end := strings.Index(content[3:], "---")
 	if end < 0 {
-		return &types.Skill{Name: dirName, Description: ""}
+		return skill
 	}
 	frontmatter := content[3 : end+3]
-	skill := &types.Skill{Name: dirName}
 	for _, line := range strings.Split(frontmatter, "\n") {
 		line = strings.TrimSpace(line)
 		if strings.HasPrefix(line, "name:") {
@@ -432,6 +586,7 @@ func parseSkillFrontmatter(dirName, content string) *types.Skill {
 			}
 		}
 	}
+	skill.Content = content
 	return skill
 }
 
